@@ -1,29 +1,27 @@
+import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/real-supabase'
 
-export async function POST(req: Request) {
-  const { taskId } = await req.json()
-
+export const POST = async (req: NextRequest) => {
   try {
-    let result
-    switch (taskId) {
-      case 'backup-now':
-      case 'auto-sync':
-      case 'schema-sync':
-      case 'auto-backup':
-      case 'health-check':
-      case 'log-rotation':
-      case 'ai-optimization':
-      case 'security-scan':
-        result = await supabase.from('automation_logs').insert([
-          { task_name: taskId, status: 'running', started_at: new Date() }
-        ])
-        break
-      default:
-        return new Response(JSON.stringify({ error: 'Unknown task' }), { status: 400 })
+    const { taskName } = await req.json()
+
+    if (!taskName) {
+      return NextResponse.json({ success: false, error: 'Task name is required' }, { status: 400 })
     }
 
-    return new Response(JSON.stringify({ success: true, result }), { status: 200 })
+    // Log the task start
+    const { data, error } = await supabase.from('automation_logs').insert([{
+      task_name: taskName,
+      status: 'running',
+      run_time: new Date()
+    }])
+
+    if (error) throw error
+
+    // You can call the actual task function here (backup, sync, etc.)
+
+    return NextResponse.json({ success: true, message: `Task ${taskName} started`, log: data })
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 })
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
   }
 }
