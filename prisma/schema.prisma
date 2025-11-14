@@ -1,14 +1,11 @@
-
-// This is your Prisma schema file for Supabase PostgreSQL,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
+// Prisma schema for Supabase PostgreSQL
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL") // Set this in Vercel and local .env
 }
 
 model User {
@@ -22,11 +19,11 @@ model User {
   societyAccountId  String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-  
+
   // Relations
   societyAccount    SocietyAccount? @relation(fields: [societyAccountId], references: [id])
   createdSocieties  Society[]
-  
+
   @@map("users")
 }
 
@@ -44,11 +41,11 @@ model SocietyAccount {
   isActive            Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
-  
+
   // Relations
   users               User[]
   societies           Society[]
-  
+
   @@map("society_accounts")
 }
 
@@ -64,11 +61,11 @@ model Society {
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   // Relations
   societyAccount  SocietyAccount @relation(fields: [societyAccountId], references: [id])
   createdByUser   User           @relation(fields: [createdByUserId], references: [id])
-  
+
   @@map("societies")
 }
 
@@ -80,7 +77,7 @@ model Post {
   authorId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@map("posts")
 }
 
@@ -92,7 +89,7 @@ model Secret {
   lastRotated DateTime @default(now())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   @@map("secrets")
 }
 
@@ -106,6 +103,6 @@ model AutomationLog {
   runTime     DateTime @default(now()) @map("run_time")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   @@map("automation_logs")
 }
