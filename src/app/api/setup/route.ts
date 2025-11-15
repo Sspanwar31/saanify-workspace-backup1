@@ -1,3 +1,4 @@
+// src/app/api/setup/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -5,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 const SETUP_MODE = process.env.SETUP_MODE === "true";
 const SETUP_KEY = process.env.SETUP_KEY;
 
-// Use service key for server-side operations
+// Supabase server-side client with service key
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_KEY!
@@ -19,11 +20,12 @@ export async function POST(req: NextRequest) {
   try {
     const { setupKey, superadminEmail, superadminPassword } = await req.json();
 
-    // Verify setup key
+    // Validate setup key
     if (setupKey !== SETUP_KEY) {
       return NextResponse.json({ success: false, error: "Invalid setup key" }, { status: 401 });
     }
 
+    // Basic validation
     if (!superadminEmail || !superadminPassword || superadminPassword.length < 8) {
       return NextResponse.json({ success: false, error: "Invalid email or password" }, { status: 400 });
     }
