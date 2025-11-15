@@ -6,9 +6,9 @@ const SETUP_MODE = process.env.SETUP_MODE === "true";
 const SETUP_KEY = process.env.SETUP_KEY;
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+  process.env.SUPABASE_URL!,       // service key ke saath server-side
+  process.env.SUPABASE_SERVICE_KEY!
+)
 
 export async function POST(req: NextRequest) {
   if (!SETUP_MODE) {
