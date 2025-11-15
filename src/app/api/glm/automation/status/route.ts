@@ -1,8 +1,10 @@
+// src/app/api/glm/automation/status/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
+    // Define automation tasks
     const tasks = [
       'schema-sync',
       'auto-sync',
@@ -15,16 +17,18 @@ export async function GET(request: NextRequest) {
       'backup-restore'
     ]
 
+    // Fetch last log for each task
     const statusPromises = tasks.map(async (task) => {
       const lastLog = await db.automation_logs.findFirst({
-        where: { task },
+        where: { task_name: task }, // ✅ Correct column
         orderBy: { createdAt: 'desc' }
       })
+
       return {
         task,
         lastRun: lastLog?.createdAt || null,
         status: lastLog?.status || 'ready',
-        message: lastLog?.message || null
+        message: lastLog?.details || null
       }
     })
 
