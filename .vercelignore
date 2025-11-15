@@ -1,0 +1,12 @@
+# Ignore backups
+backups/
+*.tar.gz
+*.zip
+
+# Ignore node modules that are not needed in serverless functions
+node_modules/.prisma
+node_modules/.cache
+
+# Ignore local logs
+logs/
+*.log
