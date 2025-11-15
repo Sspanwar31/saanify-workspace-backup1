@@ -4,7 +4,6 @@ import { db } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   try {
-    // Define automation tasks
     const tasks = [
       'schema-sync',
       'auto-sync',
@@ -17,29 +16,23 @@ export async function GET(req: NextRequest) {
       'backup-restore'
     ]
 
-    // Fetch last log for each task
-    const statusPromises = tasks.map(async (task) => {
-      const lastLog = await db.automation_logs.findFirst({
-        where: { task_name: task }, // ✅ Correct column
-        orderBy: { createdAt: 'desc' }
+    const status = await Promise.all(
+      tasks.map(async (task) => {
+        const lastLog = await db.automation_logs.findFirst({
+          where: { task_name: task },
+          orderBy: { createdAt: 'desc' }
+        })
+        return {
+          task,
+          lastRun: lastLog?.createdAt || null,
+          status: lastLog?.status || 'ready',
+          message: lastLog?.details || null
+        }
       })
+    )
 
-      return {
-        task,
-        lastRun: lastLog?.createdAt || null,
-        status: lastLog?.status || 'ready',
-        message: lastLog?.details || null
-      }
-    })
-
-    const status = await Promise.all(statusPromises)
-
-    return NextResponse.json({
-      success: true,
-      data: status
-    })
-  } catch (error) {
-    console.error('Error fetching automation status:', error)
+    return NextResponse.json({ success: true, data: status })
+  } catch {
     return NextResponse.json(
       { success: false, error: 'Failed to fetch automation status' },
       { status: 500 }
