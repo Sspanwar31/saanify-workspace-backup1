@@ -35,4 +35,4 @@ export const GET = async (req: NextRequest) => {
       error: 'Failed to fetch automation status'
     }, { status: 500 })
   }
-} upadte ho gaya kya code check karo
+}
