@@ -1,99 +1,68 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { z } from "zod";
 
-// Validation schema
+// Supabase server-side client (service key)
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 const signupSchema = z.object({
-  firstName: z.string().min(2, 'First name must be at least 2 characters'),
-  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
-  company: z.string().min(2, 'Company name must be at least 2 characters'),
-  role: z.enum(['developer', 'designer', 'manager', 'founder', 'other']),
-  password: z.string().min(8, 'Password must be at least 8 characters')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain uppercase, lowercase, and number'),
-  agreeToTerms: z.boolean().refine(val => val === true, 'You must agree to the terms and conditions')
-})
+  firstName: z.string().min(2),
+  lastName: z.string().min(2),
+  email: z.string().email(),
+  company: z.string().min(2),
+  role: z.enum(['developer','designer','manager','founder','other']),
+  password: z.string().min(8)
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/),
+  agreeToTerms: z.boolean().refine(v => v === true)
+});
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json()
+    const body = await req.json();
+    const validatedData = signupSchema.parse(body);
 
-    // Validate input
-    const validatedData = signupSchema.parse(body)
+    // Check if user exists
+    const { data: existingUser } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", validatedData.email)
+      .single();
 
-    // Check if user already exists (in a real app, you'd check your database)
-    // For demo purposes, we'll simulate this check
-    const existingUser = await checkUserExists(validatedData.email)
     if (existingUser) {
-      return NextResponse.json(
-        { error: 'User with this email already exists' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "User already exists" }, { status: 400 });
     }
 
-    // Create user (in a real app, you'd save to your database)
-    const user = await createUser(validatedData)
+    // Insert user
+    const { error: insertError } = await supabase
+      .from("users")
+      .insert({
+        email: validatedData.email,
+        password: await hashPassword(validatedData.password),
+        role: validatedData.role,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
 
-    // Generate JWT token (in a real app, you'd use a proper JWT library)
-    const token = generateToken(user)
+    if (insertError) throw insertError;
 
-    // Return success response
-    return NextResponse.json({
-      success: true,
-      message: 'Account created successfully',
-      user: {
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        company: user.company,
-        role: user.role,
-        createdAt: user.createdAt
-      },
-      token
-    })
+    return NextResponse.json({ success: true, message: "User created" });
 
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { 
-          error: 'Validation failed',
-          details: error.errors.map(err => ({
-            field: err.path.join('.'),
-            message: err.message
-          }))
-        },
-        { status: 400 }
-      )
+  } catch (err: any) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json({ error: "Validation failed", details: err.errors }, { status: 400 });
     }
-
-    console.error('Signup error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error(err);
+    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
   }
 }
 
-// Helper functions (in a real app, these would interact with your database)
-async function checkUserExists(email: string): Promise<boolean> {
-  // Simulate database check
-  // In a real app, you'd query your database
-  return false
-}
-
-async function createUser(data: any) {
-  // Simulate user creation
-  // In a real app, you'd save to your database with proper hashing
-  return {
-    id: Math.random().toString(36).substr(2, 9),
-    ...data,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-}
-
-function generateToken(user: any): string {
-  // Simulate JWT generation
-  // In a real app, you'd use a proper JWT library
-  return Buffer.from(JSON.stringify({ userId: user.id, email: user.email })).toString('base64')
+async function hashPassword(password: string) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,'0')).join("");
 }
