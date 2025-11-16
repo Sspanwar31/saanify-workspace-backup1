@@ -1,64 +1,42 @@
-// src/app/api/setup/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import bcrypt from "bcryptjs";
 
-// Server-side environment variables
+// Env variables
 const SETUP_MODE = process.env.SETUP_MODE === "true";
 const SETUP_KEY = process.env.SETUP_KEY;
 
-// Use service role key for server-side operations
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 export async function POST(req: NextRequest) {
-  if (!SETUP_MODE) {
-    return NextResponse.json({ success: false, error: "Setup mode is disabled" }, { status: 403 });
-  }
+  if (!SETUP_MODE) return NextResponse.json({ success: false, error: "Setup mode disabled" }, { status: 403 });
 
   try {
     const { setupKey, superadminEmail, superadminPassword } = await req.json();
 
-    // Validate setup key
-    if (setupKey !== SETUP_KEY) {
-      return NextResponse.json({ success: false, error: "Invalid setup key" }, { status: 401 });
-    }
-
-    // Validate email & password
-    if (!superadminEmail || !superadminPassword || superadminPassword.length < 8) {
+    if (setupKey !== SETUP_KEY) return NextResponse.json({ success: false, error: "Invalid setup key" }, { status: 401 });
+    if (!superadminEmail || !superadminPassword || superadminPassword.length < 8) 
       return NextResponse.json({ success: false, error: "Invalid email or password" }, { status: 400 });
-    }
 
-    // Step 1: Initialize schema via RPC
+    // Initialize schema
     const { error: schemaError } = await supabase.rpc("initialize_app_schema");
     if (schemaError) throw schemaError;
 
-    // Step 2: Hash password with bcrypt
-    const hashedPassword = await bcrypt.hash(superadminPassword, 12);
+    // Simple SHA-256 hash
+    const encoder = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(superadminPassword));
+    const hashedPassword = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
 
-    // Step 3: Insert superadmin user
+    // Insert superadmin
     const { error: userError } = await supabase
       .from("users")
-      .insert({
-        email: superadminEmail,
-        password: hashedPassword,
-        role: "superadmin",
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .insert({ email: superadminEmail, password: hashedPassword, role: "superadmin", is_active: true })
       .select();
-
     if (userError) throw userError;
 
-    return NextResponse.json({
-      success: true,
-      message: "Setup completed successfully",
-      redirectUrl: "/auth/login",
-      superadmin: { email: superadminEmail, role: "superadmin" }
-    });
+    return NextResponse.json({ success: true, message: "Setup completed", redirectUrl: "/auth/login" });
 
   } catch (err: any) {
     console.error("Setup failed:", err);
